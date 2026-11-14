@@ -1,0 +1,385 @@
+enum member_role {
+	owner
+	editor
+	viewer
+}
+
+enum project_status {
+	uploading
+	queued
+	processing
+	awaiting_cast
+	synthesizing
+	in_review
+	rendering
+	completed
+	failed
+}
+
+enum pipeline_stage {
+	validate
+	extract_audio
+	analyze_video
+	transcribe
+	separate_stems
+	segmentize
+	translate
+	synthesize
+	mix
+	mux
+	export
+}
+
+enum voice_status {
+	draft
+	cloning
+	verification_required
+	ready
+	failed
+	deleting
+}
+
+enum upload_kind {
+	voice_sample
+	project_video
+}
+
+enum upload_status {
+	pending
+	completed
+	aborted
+	expired
+}
+
+enum asset_kind {
+	source_video
+	dialogue_track
+	background_track
+	transcript
+	analysis
+	dubbed_track
+	segment_audio
+	export_video
+}
+
+enum gender {
+	male
+	female
+	unknown
+}
+
+enum emotion {
+	neutral
+	happy
+	sad
+	angry
+	fearful
+	surprised
+}
+
+enum review_status {
+	pending
+	approved
+	flagged
+}
+
+enum version_status {
+	pending
+	generating
+	ready
+	failed
+}
+
+enum run_status {
+	queued
+	running
+	succeeded
+	failed
+}
+
+enum export_status {
+	rendering
+	ready
+	failed
+}
+
+Table users [headercolor: #175e7a] {
+	id uuid [ pk ]
+}
+
+Table sessions [headercolor: #175e7a] {
+	id uuid
+}
+
+Table accounts [headercolor: #175e7a] {
+	id uuid
+}
+
+Table verifications [headercolor: #175e7a] {
+	id uuid
+}
+
+Table uploads [headercolor: #175e7a] {
+	id uuid [ pk, default: `gen_random_uuid()` ]
+	studio_id uuid [ not null ]
+	kind upload_kind [ not null ]
+	content_type text [ not null ]
+	voice_id uuid
+	project_id uuid
+	expected_size_bytes bigint [ not null ]
+	r2_key text [ not null, unique ]
+	multipart_upload_id text
+	part_size_bytes int
+	status upload_status [ not null, default: "pending" ]
+	expires_at timestamptz [ not null, note: 'now() + 24' ]
+	created_at timestamptz [ not null, default: `now()` ]
+	updated_at timestamptz [ not null, default: `now()` ]
+
+	indexes {
+		(status, expires_at)
+		(studio_id, created_at)
+		(project_id)
+		(voice_id)
+	}
+}
+
+Table studios [headercolor: #175e7a] {
+	id uuid [ pk, default: `gen_random_uuid()` ]
+	name text [ not null ]
+	created_at timestamptz [ not null, default: `now()` ]
+	updated_at timestamptz [ not null, default: `now()` ]
+}
+
+Table studio_members [headercolor: #175e7a] {
+	studio_id uuid [ pk, not null ]
+	user_id uuid [ pk, not null ]
+	role member_role [ not null ]
+	created_at timestamptz [ not null, default: `now()` ]
+	updated_at timestamptz [ not null, default: `now()` ]
+
+	indexes {
+		(user_id)
+	}
+}
+
+Table projects [headercolor: #175e7a] {
+	id uuid [ pk, default: `gen_random_uuid()` ]
+	studio_id uuid [ not null ]
+	name text
+	status project_status [ not null, default: "uploading" ]
+	source_lang text [ not null, default: 'en' ]
+	target_lang text [ not null, default: 'ar' ]
+	created_by uuid [ not null ]
+	duration_ms int
+	deleted_at timestamptz
+	created_at timestamptz [ not null, default: `now()` ]
+	updated_at timestamptz [ not null, default: `now()` ]
+
+	indexes {
+		(studio_id, created_at)
+	}
+}
+
+Table stage_runs [headercolor: #175e7a] {
+	id uuid [ pk, default: `gen_random_uuid()` ]
+	project_id uuid [ not null ]
+	input_hash text [ note: 'to avoid repeating existing calls (caching)' ]
+	vendor_request_id text [ note: '''task_id by 12labs worker would use it
+    to resume polling existing req instead of submiting another req
+    which costs money''' ]
+	stage pipeline_stage [ not null ]
+	status run_status [ not null ]
+	error text
+	created_at timestamptz [ not null, default: `now()` ]
+	updated_at timestamptz [ not null, default: `now()` ]
+
+	indexes {
+		(project_id, stage, created_at)
+	}
+}
+
+Table assets [headercolor: #175e7a] {
+	id uuid [ pk, default: `gen_random_uuid()` ]
+	project_id uuid [ not null ]
+	kind asset_kind [ not null ]
+	content_type text [ not null ]
+	size_bytes bigint [ not null ]
+	r2_key text [ not null, unique ]
+	created_at timestamptz [ not null, default: `now()` ]
+
+	indexes {
+		(project_id, kind)
+	}
+}
+
+Table voices [headercolor: #175e7a] {
+	id uuid [ pk, default: `gen_random_uuid()` ]
+	studio_id uuid [ not null ]
+	name text [ not null ]
+	sample_duration_ms int
+	provider_voice_id text [ unique, note: 'from 11labs' ]
+	status voice_status [ not null, default: "draft" ]
+	sample_key text [ unique, note: 'R2 key' ]
+	created_by uuid [ not null ]
+	consent_speaker_name text
+	consent_confirmed_at timestamptz [ not null ]
+	deleted_at timestamptz [ note: 'soft delte' ]
+	created_at timestamptz [ not null, default: `now()` ]
+	updated_at timestamptz [ not null, default: `now()` ]
+
+	indexes {
+		(studio_id, status)
+	}
+}
+
+Table segment_versions [headercolor: #175e7a] {
+	id uuid [ pk, default: `gen_random_uuid()` ]
+	segment_id uuid [ not null ]
+	version integer [not null]
+	voice_id uuid
+	duration_ms int
+	translated_text text [ not null ]
+	seed bigint
+	emotion emotion [ not null, note: 'user can edit emotion' ]
+	status version_status [ not null, default: "pending" ]
+	audio_asset_id uuid
+	created_at timestamptz [ not null, default: `now()` ]
+	updated_at timestamptz [ not null, default: `now()` ]
+
+	indexes {
+		(segment_id, created_at)
+		(audio_asset_id)
+		(voice_id)
+	}
+}
+
+Table exports [headercolor: #175e7a] {
+	id uuid [ pk, default: `gen_random_uuid()` ]
+	project_id uuid [ not null ]
+	video_asset_id uuid
+	status export_status [ not null, default: "rendering" ]
+	created_at timestamptz [ not null, default: `now()` ]
+
+	indexes {
+		(project_id, created_at)
+		(video_asset_id)
+	}
+}
+
+Table characters [headercolor: #175e7a] {
+	id uuid [ pk, default: `gen_random_uuid()` ]
+	gender gender [ not null, default: "unknown" ]
+	project_id uuid [ not null ]
+	voice_id uuid
+	provider_speaker_id text [ note: 'from 11labs , helps in segmentize' ]
+	created_at timestamptz [ not null, default: `now()` ]
+	updated_at timestamptz [ not null, default: `now()` ]
+
+	indexes {
+		(project_id, provider_speaker_id) [ unique ]
+		(voice_id)
+	}
+}
+
+Table segments [headercolor: #175e7a] {
+	id uuid [ pk, default: `gen_random_uuid()` ]
+	project_id uuid [ not null ]
+	character_id uuid [ not null ]
+	start_ms int [ not null ]
+	end_ms int [ not null ]
+	source_text text [ not null ]
+	emotion emotion [ not null, default: "neutral" ]
+	review_status review_status [ not null, default: "pending" ]
+	current_version_id uuid
+	created_at timestamptz [ not null, default: `now()` ]
+	updated_at timestamptz [ not null, default: `now()` ]
+
+	indexes {
+		(project_id, start_ms)
+		(character_id)
+	}
+}
+
+Ref fk_studio_members_studio_id_studios {
+	studio_members.studio_id > studios.id [ delete: no action, update: no action ]
+}
+
+Ref fk_studio_members_user_id_users {
+	studio_members.user_id > users.id [ delete: no action, update: no action ]
+}
+
+Ref fk_projects_created_by_users {
+	projects.created_by > users.id [ delete: no action, update: no action ]
+}
+
+Ref fk_projects_studio_id_studios {
+	projects.studio_id > studios.id [ delete: no action, update: no action ]
+}
+
+Ref fk_voices_studio_id_studios {
+	voices.studio_id > studios.id [ delete: restrict, update: no action ]
+}
+
+Ref fk_voices_created_by_users {
+	voices.created_by > users.id [ delete: restrict, update: no action ]
+}
+
+Ref fk_uploads_studio_id_studios {
+	uploads.studio_id > studios.id [ delete: no action, update: no action ]
+}
+
+Ref fk_uploads_voice_id_voices {
+	uploads.voice_id > voices.id [ delete: no action, update: no action ]
+}
+
+Ref fk_uploads_project_id_projects {
+	uploads.project_id > projects.id [ delete: cascade, update: no action ]
+}
+
+Ref fk_assets_project_id_projects {
+	assets.project_id > projects.id [ delete: cascade, update: no action ]
+}
+
+Ref fk_characters_project_id_projects {
+	characters.project_id > projects.id [ delete: cascade, update: no action ]
+}
+
+Ref fk_characters_voice_id_voices {
+	characters.voice_id > voices.id [ delete: set null, update: no action ]
+}
+
+Ref fk_segments_project_id_projects {
+	segments.project_id > projects.id [ delete: cascade, update: no action ]
+}
+
+Ref fk_segments_character_id_characters {
+	segments.character_id > characters.id [ delete: no action, update: no action ]
+}
+
+Ref fk_segments_current_version_id_segment_versions {
+	segments.current_version_id - segment_versions.id [ delete: set null, update: no action ]
+}
+
+Ref fk_segment_versions_segment_id_segments {
+	segment_versions.segment_id > segments.id [ delete: cascade, update: no action ]
+}
+
+Ref fk_segment_versions_voice_id_voices {
+	segment_versions.voice_id > voices.id [ delete: no action, update: no action ]
+}
+
+Ref fk_segment_versions_audio_asset_id_assets {
+	segment_versions.audio_asset_id > assets.id [ delete: no action, update: no action ]
+}
+
+Ref fk_stage_runs_project_id_projects {
+	stage_runs.project_id > projects.id [ delete: cascade, update: no action ]
+}
+
+Ref fk_exports_project_id_projects {
+	exports.project_id > projects.id [ delete: cascade, update: no action ]
+}
+
+Ref fk_exports_video_asset_id_assets {
+	exports.video_asset_id > assets.id [ delete: no action, update: no action ]
+}
