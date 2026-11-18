@@ -16,20 +16,20 @@ services:
       retries: 10
     restart: unless-stopped
 
-  migrate:
-    image: dubbio-api:prod
-    build:
-      context: .
-      target: runtime
-    command: ["node", "dist/database/migrate.js"]
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-dubbio}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-dubbio}
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: "no"
-
+  #   migrate:
+  #     image: dubbio-api:prod
+  #     build:
+  #       context: .
+  #       target: runtime
+  #     command: ["node", "dist/database/migrate.js"]
+  #     environment:
+  #       NODE_ENV: production
+  #       DATABASE_URL: postgresql://${POSTGRES_USER:-dubbio}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-dubbio}
+  #     depends_on:
+  #       db:
+  #         condition: service_healthy
+  #     restart: "no"
+  #
   api:
     image: dubbio-api:prod
     build:

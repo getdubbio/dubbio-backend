@@ -8,9 +8,9 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
 
-  await app.listen(env.PORT);
+  await app.listen(env.API_PORT);
 
-  Logger.log(`API listening on http://localhost:${env.PORT}`, "Bootstrap");
+  Logger.log(`API listening on http://localhost:${env.API_PORT}`, "Bootstrap");
 }
 
 bootstrap().catch((error: unknown) => {

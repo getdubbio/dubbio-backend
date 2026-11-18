@@ -1,0 +1,29 @@
+import {
+  index,
+  pgEnum,
+  primaryKey,
+  snakeCase,
+  uuid,
+} from "drizzle-orm/pg-core";
+import { studiosTable } from "./studios.schema.js";
+import { timestamps } from "./helpers/columns.helpers.js";
+
+export const memberRole = pgEnum("member_role", ["owner", "editor", "viewer"]);
+
+export const studioMembersTable = snakeCase.table(
+  "studio_members",
+  {
+    studioId: uuid()
+      .notNull()
+      .references(() => studiosTable.id),
+    // TODO(auth): add .references(() => usersTable.id) once the better-auth
+    // schema exists. The DBML reference is users.id, not studio_members.id.
+    userId: uuid().notNull(),
+    role: memberRole().notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    primaryKey({ columns: [t.studioId, t.userId] }),
+    index().on(t.userId),
+  ],
+);
