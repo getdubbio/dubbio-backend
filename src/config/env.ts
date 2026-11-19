@@ -8,7 +8,9 @@ if (existsSync(".env")) {
 
 const envSchema = z.object({
   DATABASE_URL: z.url(),
-  API_PORT: z.coerce.number().default(3000),
+  REDIS_URL: z.url(),
+  API_PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+  PROVIDERS_MODE: z.enum(["mock"]).default("mock"),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -18,4 +20,5 @@ if (parsed.error) {
   console.error(parsed.error.message);
   exit(1);
 }
+
 export const env: Env = parsed.data;
