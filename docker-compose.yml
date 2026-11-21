@@ -33,6 +33,8 @@ services:
     ports:
       - "127.0.0.1:${PORT:-3000}:3000"
     depends_on:
+      db:
+        condition: service_healthy
       redis:
         condition: service_healthy
     develop:
@@ -64,6 +66,8 @@ services:
       REDIS_URL: redis://redis:6379
       PROVIDERS_MODE: ${PROVIDERS_MODE:-mock}
     depends_on:
+      db:
+        condition: service_healthy
       redis:
         condition: service_healthy
     develop:
