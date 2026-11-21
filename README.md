@@ -258,7 +258,7 @@ Production orchestration is not defined yet.
 | Local Compose (db, redis, api, worker) | Implemented                                |
 | BullMQ queues and worker process       | Implemented; test job only                 |
 | Mock vendor providers                  | Implemented                                |
-| Initial migration                      | Implemented                                |
+| SQL migrations                         | None generated yet                         |
 | HTTP API modules                       | Not implemented                            |
 | better-auth integration                | Not implemented; user foreign keys pending |
 | R2 upload endpoints                    | Not implemented                            |
