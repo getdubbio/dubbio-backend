@@ -14,7 +14,7 @@ untouched until the final render.
 
 ## Architecture
 
-![Dubbio dubbing pipeline](./dubbio.svg)
+![Dubbio dubbing pipeline](./docs/diagrams/dubbio.excalidraw.svg)
 
 The table describes the target architecture. The NestJS bootstrap, environment
 validation, database schema and relations, and Docker setup exist in code today;
