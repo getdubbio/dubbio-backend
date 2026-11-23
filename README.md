@@ -267,15 +267,16 @@ finished.
 
 ## Documentation
 
-| File                                                                   | Holds                                         |
-| ---------------------------------------------------------------------- | --------------------------------------------- |
-| [`docs/queue.md`](docs/queue.md)                                       | Queues, jobs, payloads, events, pipeline flow |
-| [`docs/errors.md`](docs/errors.md)                                     | Error response shape and error codes          |
-| [`docs/schema-notes.md`](docs/schema-notes.md)                         | Database rules `dubbio.dbml` can't express    |
-| [`docs/glossary.md`](docs/glossary.md)                                 | Project terms                                 |
-| [`docs/adr/`](docs/adr/)                                               | Decisions; start from `0000-template.md`      |
-| [`docs/module-readme-template.md`](docs/module-readme-template.md)     | Template for `src/modules/<name>/README.md`   |
-| [`.github/pull_request_template.md`](.github/pull_request_template.md) | PR description sections                       |
+| File                                                                   | Holds                                             |
+| ---------------------------------------------------------------------- | ------------------------------------------------- |
+| [`docs/queue.md`](docs/queue.md)                                       | Queues, jobs, payloads, events, pipeline flow     |
+| [`docs/errors.md`](docs/errors.md)                                     | Error response shape and error codes              |
+| [`docs/schema-notes.md`](docs/schema-notes.md)                         | Database rules `dubbio.dbml` can't express        |
+| [`docs/glossary.md`](docs/glossary.md)                                 | Project terms                                     |
+| [`docs/diagrams/`](docs/diagrams/)                                     | Diagrams (`.excalidraw.svg`, editable in VS Code) |
+| [`docs/adr/`](docs/adr/)                                               | Decisions; start from `0000-template.md`          |
+| [`docs/module-readme-template.md`](docs/module-readme-template.md)     | Template for `src/modules/<name>/README.md`       |
+| [`.github/pull_request_template.md`](.github/pull_request_template.md) | PR description sections                           |
 
 ## Development conventions
 

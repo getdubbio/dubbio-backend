@@ -135,6 +135,10 @@ Workers publish progress on Redis pub/sub. Publishing is best effort: a failed p
 
 ## Pipeline sequence
 
+![Queues, workers and events](diagrams/BullMQ.excalidraw.svg)
+
+Diagram source: [`diagrams/BullMQ.excalidraw.svg`](diagrams/BullMQ.excalidraw.svg). Edit it with the Excalidraw VS Code extension; the scene is embedded in the SVG. If the diagram and this file disagree, this file wins.
+
 Stage names match `pipeline_stage`; statuses match `project_status`. Each stage execution is one `stage_runs` row.
 
 **Coordinator.** Every stage job ends by enqueuing `pipeline.advance`. That job reads the project status and the latest `stage_runs`, then enqueues every stage whose needs are met. Stage jobs never enqueue the next stage themselves.
