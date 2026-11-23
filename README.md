@@ -54,8 +54,8 @@ until the dialogue has been approved.
 | Translate and cast | Cast gate      | Human renames/merges characters, sets gender, and assigns voices.                |
 | Synthesize/review  | Synthesize     | Join translated text with confirmed cast; TTS, measure, stretch, retry.          |
 | Synthesize/review  | Review gate    | Human listens, edits text or speaker, regenerates, locks, and approves.          |
-| Deliver            | Render         | Mix, duck, and normalize audio; mux with video copy and an SRT track.            |
-| Deliver            | Export         | Persist a versioned MP4, audio track, and subtitles; status `completed`.         |
+| Deliver            | Render         | Mix, duck, and normalize audio; mux with a video stream copy.                    |
+| Deliver            | Export         | Persist a versioned MP4 and dubbed audio track; status `completed`.              |
 
 Key pipeline rules from the design:
 
@@ -91,8 +91,9 @@ Voices are studio-wide. Only a voice in `ready` status can be assigned to a
 character; cloning moves a sample through `draft`, `cloning`, and `ready`, with
 `failed` and `verification_required` as exception states.
 
-`dubbio.dbml` is the data-model design reference. The Drizzle schema in
-`src/database/schema/` is the source of truth for generated migrations.
+`dubbio.dbml` and [`docs/schema-notes.md`](docs/schema-notes.md) are the source
+of truth for the data model. The Drizzle schema in `src/database/schema/`
+implements them; check generated migrations against both.
 
 Authentication is not wired yet. `studio_members.user_id`,
 `projects.created_by`, and `voices.created_by` are UUID columns reserved for the
@@ -263,6 +264,18 @@ finished.
 | Vendor adapters                  | Not implemented                            |
 | Automated tests                  | None yet                                   |
 | Production migration service     | Not implemented                            |
+
+## Documentation
+
+| File                                                                   | Holds                                         |
+| ---------------------------------------------------------------------- | --------------------------------------------- |
+| [`docs/queue.md`](docs/queue.md)                                       | Queues, jobs, payloads, events, pipeline flow |
+| [`docs/errors.md`](docs/errors.md)                                     | Error response shape and error codes          |
+| [`docs/schema-notes.md`](docs/schema-notes.md)                         | Database rules `dubbio.dbml` can't express    |
+| [`docs/glossary.md`](docs/glossary.md)                                 | Project terms                                 |
+| [`docs/adr/`](docs/adr/)                                               | Decisions; start from `0000-template.md`      |
+| [`docs/module-readme-template.md`](docs/module-readme-template.md)     | Template for `src/modules/<name>/README.md`   |
+| [`.github/pull_request_template.md`](.github/pull_request_template.md) | PR description sections                       |
 
 ## Development conventions
 
