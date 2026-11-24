@@ -23,7 +23,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:check": "drizzle-kit check",
-    "test": "vitest run"
+    "test": "vitest run",
+    "ai:prompt": "nest build && node dist/ai/scripts/translation-prompt.cli.js"
   },
   "dependencies": {
     "@nestjs/bullmq": "^12.0.2",

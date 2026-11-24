@@ -102,9 +102,22 @@ One call translates a batch of lines with their context. Plain sentence-by-sente
 - `targetLanguage` is a BCP 47 tag of the variety, for example `ar-EG`.
 - **Gender `unknown`:** neutral phrasing where the language allows; never default to male (schema-notes.md).
 - **Approved segments** are never sent as `lines`, only as `context`.
-- **`maxChars`** = `floor(durationMs / 1000 × charsPerSecond)`.
-  > OPEN: `charsPerSecond` for Egyptian Arabic with the cloned voices. Measured in week 4.
-- **Too long after synthesis:** `segment.regenerate` re-translates with a lower `maxChars` (queue.md).
+- **`maxChars`** = `floor(durationMs / 1000 × charsPerSecond)`, at least `MIN_CHARS` (4). Counted by `spokenLength()`: graphemes, without tashkeel or tatweel. Code: `src/ai/char-budget.ts`.
+  > OPEN: `charsPerSecond` is a placeholder (`DEFAULT_CHARS_PER_SECOND = 14`) until the week-4 measurement with the cloned voices.
+- **Too long after synthesis:** `segment.regenerate` re-translates with `shorterBudget()`: the old budget scaled by target ÷ generated duration, minus 10%, and always at least one character lower (queue.md).
+
+### Prompt
+
+`src/ai/translation-prompt.ts`, vendor-free: `buildTranslationPrompt()` returns `{ system, user }` for any chat model; `parseTranslationResponse()` reads its JSON answer and reports `missing`, `unexpected` and `too_long` lines instead of failing. `TRANSLATION_PROMPT_VERSION` goes into the input hash.
+
+Rules in the system prompt, in priority order: length, meaning, gender agreement (speaker and addressee; `unknown` never becomes masculine), emotion, Egyptian colloquial register in Arabic script without diacritics, continuity from context lines.
+
+Try it without an API key:
+
+```sh
+pnpm ai:prompt print              # prompt for the test scene; paste it into any chat model
+pnpm ai:prompt check answer.json  # checks the model's answer: ids and length per line
+```
 
 ## Synthesis
 
