@@ -70,11 +70,22 @@ type VideoAnalysisOutput = {
 Pure code, no vendor. Turns transcript words into `characters` and `segments`.
 
 - One character per transcript speaker (`characters.provider_speaker_id`).
-- A segment ends at a speaker change, a pause longer than the pause threshold, sentence-final punctuation once the segment is longer than the minimum length, or the maximum segment length.
-  > OPEN: the thresholds. Tuned on the test set in week 3.
-- Gender: from the analysis speaker mapped to this character; otherwise `unknown`.
-- Emotion: from the analysis moment that overlaps the segment most; otherwise `neutral`.
+  Code: `src/ai/segmentize.ts` (tests next to it). Defaults in `DEFAULT_SEGMENTIZE_OPTIONS`; `SEGMENTIZE_RULES_VERSION` goes into the input hash.
+
+- A segment ends at:
+  - a speaker change;
+  - a pause longer than `maxPauseMs` (500 ms);
+  - sentence-final punctuation followed by a pause of at least `minSentencePauseMs` (150 ms), once the segment is at least `minSegmentMs` (1 s) long. Two sentences said in one breath stay together;
+  - `maxSegmentMs` (8 s).
+    > OPEN: the thresholds are starting values, tuned on the test set in week 3.
+- Analysis labels map to the transcript speaker they overlap most in time.
+- Gender: from the analysis speaker mapped to this character; `unknown` when there is none, or when two labels mapped to it disagree.
+- Emotion and intensity: from the analysis moment that overlaps the segment most, counting moments of the same speaker double; otherwise `neutral`.
 - Addressee: from the same moment, mapped to a character. Needs a column (see [Open](#open)).
+
+## Test scene
+
+`src/infrastructure/providers/mock/fixtures/scene.fixture.ts`: a 28 s, two-character scene written for Dubbio, in the shape of the MVP clip. The transcription and analysis mocks return it, and the segmentize tests run on it. It has two traps: same-speaker lines 200 ms apart, and analysis labels (`A`, `B`) that differ from transcript ids.
 
 ## Translation
 
@@ -111,7 +122,7 @@ One call translates a batch of lines with their context. Plain sentence-by-sente
 | `analyze_video`  | `source_video` r2 key, `projects.source_lang`, prompt version, model                                                              |
 | `transcribe`     | `extracted_audio` r2 key, `projects.source_lang`, `numSpeakers`, model                                                            |
 | `separate_stems` | `extracted_audio` r2 key, model                                                                                                   |
-| `segmentize`     | `transcript` r2 key, `analysis` r2 key or null, rules version                                                                     |
+| `segmentize`     | `transcript` r2 key, `analysis` r2 key or null, `SEGMENTIZE_RULES_VERSION`                                                        |
 | `translate`      | per line sent: segment id, `source_text`, `maxChars`, speaker and addressee gender, emotion; `target_lang`, prompt version, model |
 | `synthesize`     | per segment: current version id, voice id, seed; model                                                                            |
 
