@@ -18,7 +18,8 @@ import {
 
 const sceneInput = () => {
   const { characters, segments } = segmentize(SCENE_WORDS, SCENE_ANALYSIS);
-  // Name characters by role so the prompt reads like a real cast.
+  // Name characters by role so the prompt reads like a real cast. Names live
+  // only here: characters.name is a pending column.
   const named = characters.map((c) => ({
     ...c,
     name: c.gender === "female" ? "Laila" : "Karim",

@@ -1,4 +1,4 @@
-import type { Emotion, Gender, Intensity } from "./shared.types.js";
+import type { Emotion, Gender } from "./shared.types.js";
 
 // Dubbing translation, not plain translation: every line carries its timing
 // budget, who says it, to whom, and how. See docs/ai.md#translation.
@@ -19,10 +19,11 @@ export type DubbingLine = {
   // language's speaking rate. A shorter re-translation passes a lower value.
   maxChars: number;
   speaker: DubbingSpeaker;
-  // null: addressed to a group, the audience, or not known.
+  // null: addressed to a group, the audience, or not known. Built at
+  // runtime; there is no addressee column yet, so today it is always null
+  // (docs/ai.md#open).
   addressee: DubbingSpeaker | null;
   emotion: Emotion;
-  intensity?: Intensity;
 };
 
 // Lines around the ones being translated, for meaning and continuity only.

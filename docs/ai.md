@@ -24,11 +24,11 @@ Every vendor sits behind an interface in `src/infrastructure/providers/interface
 
 Defined once in `interfaces/shared.types.ts`.
 
-| Name        | Values                                                         | Stored in                                                  |
-| ----------- | -------------------------------------------------------------- | ---------------------------------------------------------- |
-| `Emotion`   | `neutral`, `happy`, `sad`, `angry`, `fearful`, `surprised`     | `segments.emotion`, `segment_versions.emotion` (`varchar`) |
-| `Gender`    | `male`, `female`, `unknown`                                    | `characters.gender` (`gender` enum)                        |
-| `Intensity` | number, 0 to 1; absent = the vendor's default for that emotion | not stored yet (see [Open](#open))                         |
+| Name        | Values                                                     | Stored in                                                       |
+| ----------- | ---------------------------------------------------------- | --------------------------------------------------------------- |
+| `Emotion`   | `neutral`, `happy`, `sad`, `angry`, `fearful`, `surprised` | `segments.emotion`, `segment_versions.emotion` (`varchar`)      |
+| `Gender`    | `male`, `female`, `unknown`                                | `characters.gender` (`gender` enum)                             |
+| `Intensity` | number, 0 to 1                                             | only inside the `analysis` asset; no column yet ([Open](#open)) |
 
 `isEmotion()` validates a string before it is written to the `varchar` columns.
 
@@ -80,8 +80,8 @@ Pure code, no vendor. Turns transcript words into `characters` and `segments`.
     > OPEN: the thresholds are starting values, tuned on the test set in week 3.
 - Analysis labels map to the transcript speaker they overlap most in time.
 - Gender: from the analysis speaker mapped to this character; `unknown` when there is none, or when two labels mapped to it disagree.
-- Emotion and intensity: from the analysis moment that overlaps the segment most, counting moments of the same speaker double; otherwise `neutral`.
-- Addressee: from the same moment, mapped to a character. Needs a column (see [Open](#open)).
+- Emotion: from the analysis moment that overlaps the segment most, counting moments of the same speaker double; otherwise `neutral`.
+- **Output has only fields with a database column today:** characters get `provider_speaker_id` and `gender`; segments get `start_ms`, `end_ms`, `source_text`, `emotion`. Character name, addressee and intensity are left out until their columns exist ([Open](#open)). The analysis asset keeps addressee and intensity, so nothing is lost.
 
 ## Test scene
 
@@ -91,13 +91,13 @@ Pure code, no vendor. Turns transcript words into `characters` and `segments`.
 
 One call translates a batch of lines with their context. Plain sentence-by-sentence translation is not enough for dubbing.
 
-| Field per line | Why                                                                                   |
-| -------------- | ------------------------------------------------------------------------------------- |
-| `maxChars`     | Keeps the line speakable within `durationMs`. See below.                              |
-| `speaker`      | Arabic verbs and pronouns agree with the speaker's gender.                            |
-| `addressee`    | They also agree with the listener's gender: «إنت كنت فين؟» vs «إنتي كنتي فين؟».       |
-| `emotion`      | Wording changes with delivery: an angry and a sarcastic «Are you serious?» differ.    |
-| `context`      | Lines around the batch, with their translation when one exists, for meaning and tone. |
+| Field per line | Why                                                                                                                                                                                          |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `maxChars`     | Keeps the line speakable within `durationMs`. See below.                                                                                                                                     |
+| `speaker`      | Arabic verbs and pronouns agree with the speaker's gender.                                                                                                                                   |
+| `addressee`    | They also agree with the listener's gender: «إنت كنت فين؟» vs «إنتي كنتي فين؟». Always `null` today (no column); the prompt asks the model to infer the listener from the surrounding lines. |
+| `emotion`      | Wording changes with delivery: an angry and a sarcastic «Are you serious?» differ.                                                                                                           |
+| `context`      | Lines around the batch, with their translation when one exists, for meaning and tone.                                                                                                        |
 
 - `targetLanguage` is a BCP 47 tag of the variety, for example `ar-EG`.
 - **Gender `unknown`:** neutral phrasing where the language allows; never default to male (schema-notes.md).
@@ -110,7 +110,7 @@ One call translates a batch of lines with their context. Plain sentence-by-sente
 
 `src/ai/translation-prompt.ts`, vendor-free: `buildTranslationPrompt()` returns `{ system, user }` for any chat model; `parseTranslationResponse()` reads its JSON answer and reports `missing`, `unexpected` and `too_long` lines instead of failing. `TRANSLATION_PROMPT_VERSION` goes into the input hash.
 
-Rules in the system prompt, in priority order: length, meaning, gender agreement (speaker and addressee; `unknown` never becomes masculine), emotion, Egyptian colloquial register in Arabic script without diacritics, continuity from context lines.
+Rules in the system prompt, in priority order: length, meaning, gender agreement (speaker and addressee; an unknown addressee is inferred from the surrounding lines when clear; `unknown` never becomes masculine), emotion, Egyptian colloquial register in Arabic script without diacritics, continuity from context lines.
 
 Try it without an API key:
 
@@ -121,7 +121,7 @@ pnpm ai:prompt check answer.json  # checks the model's answer: ids and length pe
 
 ## Synthesis
 
-- Input per segment: the current version's text, the character's voice, `emotion`, optional `intensity`, `seed`.
+- Input per segment: the current version's text, the character's voice, `emotion`, `seed`.
 - `durationMs` comes back from the provider and is stored in `segment_versions.duration_ms`.
 - Small overrun: time-stretch. Large overrun: `segment.regenerate` (queue.md).
   > OPEN: the largest stretch that still sounds natural. Measured by listening in week 7.
@@ -130,14 +130,14 @@ pnpm ai:prompt check answer.json  # checks the model's answer: ids and length pe
 
 `stage_runs.input_hash` = `inputHash(inputs)` from `src/infrastructure/queue/input-hash.ts`: sha256 of canonical JSON, keys sorted, `undefined` dropped. Answers the OPEN in [queue.md](queue.md#jobs).
 
-| Stage            | Inputs                                                                                                                            |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `analyze_video`  | `source_video` r2 key, `projects.source_lang`, prompt version, model                                                              |
-| `transcribe`     | `extracted_audio` r2 key, `projects.source_lang`, `numSpeakers`, model                                                            |
-| `separate_stems` | `extracted_audio` r2 key, model                                                                                                   |
-| `segmentize`     | `transcript` r2 key, `analysis` r2 key or null, `SEGMENTIZE_RULES_VERSION`                                                        |
-| `translate`      | per line sent: segment id, `source_text`, `maxChars`, speaker and addressee gender, emotion; `target_lang`, prompt version, model |
-| `synthesize`     | per segment: current version id, voice id, seed; model                                                                            |
+| Stage            | Inputs                                                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `analyze_video`  | `source_video` r2 key, `projects.source_lang`, prompt version, model                                                |
+| `transcribe`     | `extracted_audio` r2 key, `projects.source_lang`, `numSpeakers`, model                                              |
+| `separate_stems` | `extracted_audio` r2 key, model                                                                                     |
+| `segmentize`     | `transcript` r2 key, `analysis` r2 key or null, `SEGMENTIZE_RULES_VERSION`                                          |
+| `translate`      | per line sent: segment id, `source_text`, `maxChars`, speaker gender, emotion; `target_lang`, prompt version, model |
+| `synthesize`     | per segment: current version id, voice id, seed; model                                                              |
 
 - A cast change alters the genders in `translate`'s inputs, so only the affected batch re-runs.
 - **The r2 key must change when the file changes.** Proposed: keys include the stage run id, for example `projects/{project_id}/{kind}/{stage_run_id}.{ext}`.
@@ -145,7 +145,10 @@ pnpm ai:prompt check answer.json  # checks the model's answer: ids and length pe
 
 ## Open
 
-- **Addressee column.** Proposed: `segments.addressee_character_id uuid null`, FK `characters.id`, `on delete set null`. A character merge also moves addressees to the kept character.
+Until these land, the code does not produce the fields (no schema drift).
+
+- **Character name.** Already agreed as a pending change (`characters.name`, schema-notes.md §0). Segmentize will then name characters `Speaker 1`, `Speaker 2`, ...
+- **Addressee column.** Biggest quality impact: without it the translator guesses the listener's gender. Proposed: `segments.addressee_character_id uuid null`, FK `characters.id`, `on delete set null`. A character merge also moves addressees to the kept character.
 - **Intensity column.** Proposed: `emotion_intensity smallint null` (0 to 100) on `segments` and `segment_versions`, or defer and state it in the report.
 - **`voices.error text`:** why a clone failed. `stage_runs` cannot hold it, because voice jobs have no run row.
 - **`stage_runs` output.** Job results live in Redis and expire. For `translate` and `synthesize` the reused output is found from `segment_versions`; a `stage_runs.output jsonb` would make it explicit.

@@ -6,7 +6,6 @@ import type { TranscriptWord } from "../infrastructure/providers/interfaces/tran
 import type {
   Emotion,
   Gender,
-  Intensity,
 } from "../infrastructure/providers/interfaces/shared.types.js";
 
 // Turns transcript words into characters and segments. Pure: no database, no
@@ -35,10 +34,11 @@ export const DEFAULT_SEGMENTIZE_OPTIONS: SegmentizeOptions = {
   maxSegmentMs: 8000,
 };
 
+// Output maps 1:1 to columns that exist today: characters.provider_speaker_id
+// and characters.gender; segments.start_ms, end_ms, source_text, emotion.
+// Name, addressee and intensity wait for their columns (docs/ai.md#open).
 export type SegmentizedCharacter = {
   providerSpeakerId: string;
-  // "Speaker 1", "Speaker 2", ... by first appearance. Renamed at the cast gate.
-  name: string;
   gender: Gender;
 };
 
@@ -48,9 +48,6 @@ export type SegmentizedSegment = {
   endMs: number;
   sourceText: string;
   emotion: Emotion;
-  intensity?: Intensity;
-  // Transcript speaker id of the listener, or null.
-  addresseeSpeakerId: string | null;
 };
 
 export type SegmentizeResult = {
@@ -150,7 +147,6 @@ export const segmentize = (
     if (characters.some((c) => c.providerSpeakerId === w.speaker)) continue;
     characters.push({
       providerSpeakerId: w.speaker,
-      name: `Speaker ${characters.length + 1}`,
       gender: genderOf.get(w.speaker) ?? "unknown",
     });
   }
@@ -173,20 +169,12 @@ export const segmentize = (
       if (score > bestScore) [best, bestScore] = [m, score];
     }
 
-    const addressee =
-      best?.addresseeLabel != null
-        ? labelToSpeaker.get(best.addresseeLabel)
-        : undefined;
-
     return {
       providerSpeakerId: speaker,
       startMs,
       endMs,
       sourceText: group.map((w) => w.text).join(" "),
       emotion: best?.emotion ?? "neutral",
-      ...(best?.intensity === undefined ? {} : { intensity: best.intensity }),
-      addresseeSpeakerId:
-        addressee !== undefined && addressee !== speaker ? addressee : null,
     };
   });
 

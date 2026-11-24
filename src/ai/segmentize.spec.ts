@@ -33,19 +33,29 @@ describe("segmentize on the scene fixture", () => {
 
   it("maps analysis labels to transcript speakers for gender", () => {
     expect(characters).toEqual([
-      { providerSpeakerId: "speaker_1", name: "Speaker 1", gender: "female" },
-      { providerSpeakerId: "speaker_0", name: "Speaker 2", gender: "male" },
+      { providerSpeakerId: "speaker_1", gender: "female" },
+      { providerSpeakerId: "speaker_0", gender: "male" },
     ]);
   });
 
-  it("takes emotion, intensity and addressee from the overlapping moment", () => {
+  it("takes emotion from the overlapping moment", () => {
     segments.forEach((s, i) => {
       expect(s.emotion).toBe(SCENE_LINES[i].emotion);
-      expect(s.intensity).toBe(SCENE_LINES[i].intensity);
-      expect(s.addresseeSpeakerId).toBe(
-        s.providerSpeakerId === "speaker_0" ? "speaker_1" : "speaker_0",
-      );
     });
+  });
+
+  it("outputs only fields that have a database column", () => {
+    expect(Object.keys(characters[0]).sort()).toEqual([
+      "gender",
+      "providerSpeakerId",
+    ]);
+    expect(Object.keys(segments[0]).sort()).toEqual([
+      "emotion",
+      "endMs",
+      "providerSpeakerId",
+      "sourceText",
+      "startMs",
+    ]);
   });
 });
 
@@ -113,14 +123,10 @@ describe("segmentize rules", () => {
     expect(segments.length).toBeGreaterThan(1);
   });
 
-  it("falls back to unknown gender, neutral emotion and no addressee without analysis", () => {
+  it("falls back to unknown gender and neutral emotion without analysis", () => {
     const { characters, segments } = segmentize([w("Hello.", 0, 500)], null);
     expect(characters[0].gender).toBe("unknown");
-    expect(segments[0]).toMatchObject({
-      emotion: "neutral",
-      addresseeSpeakerId: null,
-    });
-    expect(segments[0].intensity).toBeUndefined();
+    expect(segments[0].emotion).toBe("neutral");
   });
 
   it("sorts words that arrive out of order", () => {

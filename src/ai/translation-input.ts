@@ -3,8 +3,9 @@ import type {
   DubbingSpeaker,
   TranslationInput,
 } from "../infrastructure/providers/interfaces/translation.provider.js";
+import type { Gender } from "../infrastructure/providers/interfaces/shared.types.js";
 import { DEFAULT_CHARS_PER_SECOND, maxChars } from "./char-budget.js";
-import type { SegmentizedCharacter, SegmentizedSegment } from "./segmentize.js";
+import type { SegmentizedSegment } from "./segmentize.js";
 
 // Builds the translate input from segments and their characters. The
 // translate processor passes database rows in this shape; the prompt CLI
@@ -12,9 +13,16 @@ import type { SegmentizedCharacter, SegmentizedSegment } from "./segmentize.js";
 
 export type SegmentForTranslation = SegmentizedSegment & { id: string };
 
+export type CharacterForTranslation = {
+  providerSpeakerId: string;
+  gender: Gender;
+  // Display name, when one is known. characters.name is a pending column.
+  name?: string;
+};
+
 export const toTranslationInput = (
   segments: readonly SegmentForTranslation[],
-  characters: readonly SegmentizedCharacter[],
+  characters: readonly CharacterForTranslation[],
   languages: { source: string; target: string },
   charsPerSecond: number = DEFAULT_CHARS_PER_SECOND,
 ): TranslationInput => {
@@ -22,7 +30,7 @@ export const toTranslationInput = (
     const c = characters.find((x) => x.providerSpeakerId === providerSpeakerId);
     return {
       characterId: providerSpeakerId,
-      name: c?.name,
+      ...(c?.name === undefined ? {} : { name: c.name }),
       gender: c?.gender ?? "unknown",
     };
   };
@@ -33,10 +41,9 @@ export const toTranslationInput = (
     durationMs: s.endMs - s.startMs,
     maxChars: maxChars(s.endMs - s.startMs, charsPerSecond),
     speaker: speakerOf(s.providerSpeakerId),
-    addressee:
-      s.addresseeSpeakerId === null ? null : speakerOf(s.addresseeSpeakerId),
+    // No addressee column yet (docs/ai.md#open).
+    addressee: null,
     emotion: s.emotion,
-    ...(s.intensity === undefined ? {} : { intensity: s.intensity }),
   }));
 
   return {

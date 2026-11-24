@@ -19,8 +19,8 @@ export const isEmotion = (value: string): value is Emotion =>
 // Same values as the `gender` pg enum.
 export type Gender = "male" | "female" | "unknown";
 
-// 0 = barely there, 1 = as strong as it gets. Optional everywhere: absent
-// means the provider's default delivery for the emotion.
+// 0 = barely there, 1 = as strong as it gets. Only in the video analysis
+// output (stored as the analysis asset); no database column yet.
 export type Intensity = number;
 
 // For vendors that run a task in the background. `submit` returns the vendor's

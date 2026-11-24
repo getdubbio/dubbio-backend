@@ -51,17 +51,16 @@ const sceneInput = () => {
 describe("translation input", () => {
   const input = sceneInput();
 
-  it("carries budget, genders and emotion for every line", () => {
+  it("carries budget, speaker gender and emotion for every line", () => {
     expect(input.lines).toHaveLength(12);
-    expect(input.lines[0]).toMatchObject({
+    expect(input.lines[0]).toEqual({
       segmentId: "seg-1",
       sourceText: "Where were you all night?",
       durationMs: 2100,
       maxChars: 29,
       speaker: { characterId: "speaker_1", gender: "female" },
-      addressee: { characterId: "speaker_0", gender: "male" },
+      addressee: null,
       emotion: "angry",
-      intensity: 0.5,
     });
   });
 });
