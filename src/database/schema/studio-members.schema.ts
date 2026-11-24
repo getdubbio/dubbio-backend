@@ -5,6 +5,7 @@ import {
   snakeCase,
   uuid,
 } from "drizzle-orm/pg-core";
+import { userTable } from "./auth.schema.js";
 import { studiosTable } from "./studios.schema.js";
 import { timestamps } from "./helpers/columns.helpers.js";
 
@@ -16,9 +17,9 @@ export const studioMembersTable = snakeCase.table(
     studioId: uuid()
       .notNull()
       .references(() => studiosTable.id),
-    // TODO(auth): add .references(() => usersTable.id) once the better-auth
-    // schema exists. The DBML reference is users.id, not studio_members.id.
-    userId: uuid().notNull(),
+    userId: uuid()
+      .notNull()
+      .references(() => userTable.id),
     role: memberRole().notNull(),
     ...timestamps,
   },

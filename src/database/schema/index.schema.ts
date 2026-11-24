@@ -9,3 +9,4 @@ export * from "./segments.schema.js";
 export * from "./segment-versions.schema.js";
 export * from "./stage-runs.schema.js";
 export * from "./exports.schema.js";
+export * from "./auth.schema.js";

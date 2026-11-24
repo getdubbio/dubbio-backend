@@ -1,33 +1,48 @@
 import { defineRelations } from "drizzle-orm";
 import {
+  accountTable,
   assetsTable,
   charactersTable,
   exportsTable,
   projectsTable,
   segmentsTable,
   segmentVersionsTable,
+  sessionTable,
   stageRunsTable,
   studioMembersTable,
   studiosTable,
   uploadsTable,
+  userTable,
+  verificationTable,
   voicesTable,
 } from "./schema/index.schema.js";
 
 export const relations = defineRelations(
   {
+    accountTable,
     assetsTable,
     charactersTable,
     exportsTable,
     projectsTable,
     segmentsTable,
     segmentVersionsTable,
+    sessionTable,
     stageRunsTable,
     studioMembersTable,
     studiosTable,
     uploadsTable,
+    userTable,
+    verificationTable,
     voicesTable,
   },
   (r) => ({
+    accountTable: {
+      user: r.one.userTable({
+        from: r.accountTable.userId,
+        to: r.userTable.id,
+        optional: false,
+      }),
+    },
     studiosTable: {
       members: r.many.studioMembersTable({
         from: r.studiosTable.id,
@@ -52,13 +67,21 @@ export const relations = defineRelations(
         to: r.studiosTable.id,
         optional: false,
       }),
-      // TODO(auth): add user and creator relations once the better-auth
-      // users table is part of this schema.
+      user: r.one.userTable({
+        from: r.studioMembersTable.userId,
+        to: r.userTable.id,
+        optional: false,
+      }),
     },
     projectsTable: {
       studio: r.one.studiosTable({
         from: r.projectsTable.studioId,
         to: r.studiosTable.id,
+        optional: false,
+      }),
+      creator: r.one.userTable({
+        from: r.projectsTable.createdBy,
+        to: r.userTable.id,
         optional: false,
       }),
       stageRuns: r.many.stageRunsTable({
@@ -86,10 +109,37 @@ export const relations = defineRelations(
         to: r.exportsTable.projectId,
       }),
     },
+    userTable: {
+      sessions: r.many.sessionTable({
+        from: r.userTable.id,
+        to: r.sessionTable.userId,
+      }),
+      accounts: r.many.accountTable({
+        from: r.userTable.id,
+        to: r.accountTable.userId,
+      }),
+      studioMemberships: r.many.studioMembersTable({
+        from: r.userTable.id,
+        to: r.studioMembersTable.userId,
+      }),
+      projects: r.many.projectsTable({
+        from: r.userTable.id,
+        to: r.projectsTable.createdBy,
+      }),
+      voices: r.many.voicesTable({
+        from: r.userTable.id,
+        to: r.voicesTable.createdBy,
+      }),
+    },
     voicesTable: {
       studio: r.one.studiosTable({
         from: r.voicesTable.studioId,
         to: r.studiosTable.id,
+        optional: false,
+      }),
+      creator: r.one.userTable({
+        from: r.voicesTable.createdBy,
+        to: r.userTable.id,
         optional: false,
       }),
       uploads: r.many.uploadsTable({
@@ -183,6 +233,13 @@ export const relations = defineRelations(
       audioAsset: r.one.assetsTable({
         from: r.segmentVersionsTable.audioAssetId,
         to: r.assetsTable.id,
+      }),
+    },
+    sessionTable: {
+      user: r.one.userTable({
+        from: r.sessionTable.userId,
+        to: r.userTable.id,
+        optional: false,
       }),
     },
     stageRunsTable: {
