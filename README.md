@@ -128,15 +128,18 @@ session for server-side code.
   schema. Both are public like the rest of `/api/auth/*`.
 - Identity is keyed by the unique `user.email`. Account linking is enabled by
   default, so a Google sign-in whose verified email matches an existing OTP user
-  links an `account` row instead of creating a second user.
+  (email OTP sign-in marks the email verified) links an `account` row instead of
+  creating a second user.
 - No Nest guard or `@CurrentUser` decorator exists yet. Business controllers
   must not assume a session until one is added.
 - The Better Auth handler is mounted directly on Express, so Nest guards do not
   cover `/api/auth/*`. Those routes are public by design.
 - CORS and `trustedOrigins` are not configured. Browser clients must use the
   same origin (or a development proxy) until they are.
-- `BETTER_AUTH_SECRET` must be a base64-encoded 32-byte secret, and
-  `BETTER_AUTH_URL` must be the externally reachable origin.
+- `BETTER_AUTH_SECRET` must be base64 (the Zod schema checks the encoding, not
+  the decoded length); generate a unique 32-byte value with
+  `openssl rand -base64 32`. `BETTER_AUTH_URL` must be the externally reachable
+  origin.
 
 ## Tech stack
 
@@ -146,9 +149,13 @@ session for server-side code.
 | Framework       | NestJS 12 with `@nestjs/drizzle`                |
 | Database        | PostgreSQL 18, Drizzle ORM 1.0 RC, drizzle-kit  |
 | Validation      | Zod 4                                           |
-| Package manager | pnpm 12.21                                      |
+| Package manager | pnpm 12.21 on the host (see note below)          |
 | Tooling         | oxlint (type-aware), Prettier                   |
 | Delivery        | Multi-stage Docker image; Compose for local dev |
+
+> **Version pin mismatch:** `package.json` and `pnpm-lock.yaml` target pnpm
+> 12.21.0, but the `pnpm` stage in `Dockerfile` currently installs pnpm 10.33.0.
+> Align them before relying on pnpm 12-specific behavior.
 
 ## Repository layout
 
@@ -198,6 +205,7 @@ contains tables created with `drizzle-kit push`, reset it first with
 
 ```bash
 cp .env.example .env
+# replace DATABASE_URL with postgresql://dubbio:dubbio@localhost:5432/dubbio
 # replace BETTER_AUTH_SECRET with a unique value from `openssl rand -base64 32`
 # set GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET for your Google OAuth client
 pnpm install                  # once; editor types, lint, migrations
@@ -211,6 +219,29 @@ worker with `curl -X POST localhost:${PORT:-3000}/dev/ping` (the job shows up in
 `GET /api/auth/ok` is a health check and `/api/auth/reference` is the
 interactive OpenAPI reference. Business routes are not implemented yet. If the
 port is already taken, set `PORT` in `.env`.
+
+Compose currently passes only `DATABASE_URL`, `REDIS_URL`, `PORT`, and
+`PROVIDERS_MODE` to the `api` and `worker` containers; `.env` is not copied into
+the image. The app validates the Better Auth and Google variables at startup, so
+those containers will exit until the values are supplied. Until Compose is
+updated (for example with `env_file: .env` on both services), use an override
+file:
+
+```yaml
+# docker-compose.auth.yml
+services:
+  api:
+    env_file: .env
+  worker:
+    env_file: .env
+```
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.auth.yml up --watch
+```
+
+Compose's explicit `environment` entries still override the `localhost` URLs
+from `.env` inside the containers.
 
 Day to day:
 
@@ -252,13 +283,17 @@ queues and ports; stop the matching container first (`docker compose stop worker
 
 ## Configuration
 
-`.env.example` contains working defaults for local variables, and Docker Compose
-reads `POSTGRES_*`, `*_PORT`, and `PROVIDERS_MODE` for interpolation while
-giving the `api` and `worker` containers their own `DATABASE_URL` and
-`REDIS_URL` pointing at the `db` and `redis` services. `DATABASE_URL` and
-`REDIS_URL` in `.env` point at `localhost` and are used by commands run on the
-host, such as `pnpm db:migrate`. Keep `DATABASE_URL` consistent with the
-`POSTGRES_*` values.
+`.env.example` is a template, not a working configuration: `DATABASE_URL` is a
+placeholder that fails Zod validation until you replace it (for host commands
+use `postgresql://dubbio:dubbio@localhost:5432/dubbio`), and the auth values are
+validation-shaped placeholders that must be replaced with real credentials.
+Docker Compose reads `POSTGRES_*`, `*_PORT`, and `PROVIDERS_MODE` for
+interpolation while giving the `api` and `worker` containers their own
+`DATABASE_URL` and `REDIS_URL` pointing at the `db` and `redis` services; it does
+**not** pass the auth variables (see [Getting started](#getting-started)).
+`DATABASE_URL` and `REDIS_URL` in `.env` point at `localhost` and are used by
+commands run on the host, such as `pnpm db:migrate`. Keep `DATABASE_URL`
+consistent with the `POSTGRES_*` values.
 
 | Variable                                              | Default  | Purpose                                                     |
 | ----------------------------------------------------- | -------- | ----------------------------------------------------------- |
@@ -267,7 +302,7 @@ host, such as `pnpm db:migrate`. Keep `DATABASE_URL` consistent with the
 | `PORT`                                                | `3000`   | Port the API listens on and the host port Compose publishes |
 | `PROVIDERS_MODE`                                      | `mock`   | Vendor provider implementation (`mock` only)                |
 | `NODE_ENV`                                            | —        | `development` or `production`                               |
-| `BETTER_AUTH_SECRET`                                  | —        | Base64-encoded 32-byte secret for Better Auth               |
+| `BETTER_AUTH_SECRET`                                  | —        | Base64 secret; use 32 bytes (decoded length not checked)     |
 | `BETTER_AUTH_URL`                                     | —        | Public base URL used for cookies and callbacks              |
 | `GOOGLE_CLIENT_ID`                                    | —        | Google OAuth client ID (`*.apps.googleusercontent.com`)     |
 | `GOOGLE_CLIENT_SECRET`                                | —        | Google OAuth client secret                                  |
@@ -346,12 +381,14 @@ orchestration is not defined yet.
 | Better Auth OpenAPI reference          | Implemented at `/api/auth/reference`                 |
 | Auth guard and protected routes        | Not implemented                                      |
 | CORS and trusted origins               | Not configured                                       |
+| Compose auth environment wiring        | Not configured; auth variables not passed to containers |
+| pnpm version alignment                 | Host 12.21.0; Dockerfile pins 10.33.0                |
 | Multi-stage Dockerfile                 | Implemented                                          |
 | Local Compose (db, redis, api, worker) | Implemented                                          |
 | BullMQ queues and worker process       | Implemented; test job only                           |
 | Mock vendor providers                  | Implemented                                          |
 | SQL migrations                         | Initial baseline committed                           |
-| HTTP API modules                       | Only `/api/auth/*`; business modules not implemented |
+| HTTP API modules                       | `/api/auth/*` and temporary `/dev/ping`; business modules not implemented |
 | R2 upload endpoints                    | Not implemented                                      |
 | Pipeline orchestration                 | Not implemented                                      |
 | Real vendor adapters                   | Not implemented                                      |
@@ -364,6 +401,7 @@ orchestration is not defined yet.
 | [`docs/queue.md`](docs/queue.md)                                       | Queues, jobs, payloads, events, pipeline flow     |
 | [`docs/errors.md`](docs/errors.md)                                     | Error response shape and error codes              |
 | [`docs/schema-notes.md`](docs/schema-notes.md)                         | Database rules `dubbio.dbml` can't express        |
+| [`docs/ai.md`](docs/ai.md)                                             | Vendor interfaces, contracts, and mock fixtures   |
 | [`docs/glossary.md`](docs/glossary.md)                                 | Project terms                                     |
 | [`docs/diagrams/`](docs/diagrams/)                                     | Diagrams (`.excalidraw.svg`, editable in VS Code) |
 | [`docs/adr/`](docs/adr/)                                               | Decisions; start from `0000-template.md`          |
@@ -384,10 +422,11 @@ orchestration is not defined yet.
   Google are configured in `src/modules/auth/auth.ts`.
 - `/api/auth/*` is mounted outside Nest. Business routes need an explicit guard
   once session protection is added.
-- pnpm 12 fails installation when a dependency has unreviewed build scripts
-  (`strictDepBuilds` defaults to true). Record each decision in
-  `pnpm-workspace.yaml` under `allowBuilds`; `msgpackr-extract` is denied because
-  it is an optional native accelerator and `msgpackr` falls back to JavaScript.
+- pnpm gates dependency build scripts through `strictDepBuilds`/`allowBuilds`.
+  Record each decision in `pnpm-workspace.yaml` under `allowBuilds`;
+  `msgpackr-extract` is denied because it is an optional native accelerator and
+  `msgpackr` falls back to JavaScript. The Docker image currently installs pnpm
+  10.33.0 (see [Tech stack](#tech-stack)).
 - Run `pnpm format`, `pnpm lint`, and `pnpm typecheck` before committing.
 - Treat migrations as append-only once applied.
 
