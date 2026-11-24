@@ -1,18 +1,15 @@
 import { Module } from "@nestjs/common";
 import { DrizzleModule } from "@nestjs/drizzle";
-import { drizzle } from "drizzle-orm/node-postgres";
-import { env } from "./config/env.js";
-import { relations } from "./database/relations.js";
 import { QueueModule } from "./infrastructure/queue/queue.module.js";
 import { DevPingController } from "./infrastructure/queue/dev-ping.controller.js";
+import { db } from "./database/db.js";
+import { AuthModule } from "./modules/auth/auth.module.js";
 
 @Module({
   imports: [
-    DrizzleModule.forRoot({
-      drizzle,
-      connection: env.DATABASE_URL,
-      relations, // relations for relational query API
-    }),
+    // already register the module globally, pass to it the db instance created manually to be reused by nest
+    DrizzleModule.forRoot({ db }),
+    AuthModule,
     QueueModule,
   ],
   controllers: [DevPingController], // TEMP
