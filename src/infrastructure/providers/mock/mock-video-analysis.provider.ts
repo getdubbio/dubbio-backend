@@ -8,31 +8,7 @@ import {
   VideoAnalysisOutput,
   VideoAnalysisProvider,
 } from "../interfaces/video-analysis.provider.js";
-
-// Lines up with MockTranscriptionProvider: two speakers, one line each.
-const OUTPUT: VideoAnalysisOutput = {
-  speakers: [
-    { label: "A", gender: "male", description: "man on the left" },
-    { label: "B", gender: "female", description: "woman on the right" },
-  ],
-  moments: [
-    {
-      startMs: 0,
-      endMs: 900,
-      speakerLabel: "A",
-      addresseeLabel: "B",
-      emotion: "neutral",
-    },
-    {
-      startMs: 1200,
-      endMs: 1600,
-      speakerLabel: "B",
-      addresseeLabel: "A",
-      emotion: "happy",
-      intensity: 0.6,
-    },
-  ],
-};
+import { SCENE_ANALYSIS } from "./fixtures/scene.fixture.js";
 
 @Injectable()
 export class MockVideoAnalysisProvider implements VideoAnalysisProvider {
@@ -43,6 +19,6 @@ export class MockVideoAnalysisProvider implements VideoAnalysisProvider {
   async poll(
     _requestId: string,
   ): Promise<VendorTaskResult<VideoAnalysisOutput>> {
-    return { status: "succeeded", output: OUTPUT };
+    return { status: "succeeded", output: SCENE_ANALYSIS };
   }
 }
