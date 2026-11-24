@@ -1,10 +1,13 @@
-export type TtsEmotion =
-  "neutral" | "happy" | "sad" | "angry" | "fearful" | "surprised";
+import type { Emotion, Intensity } from "./shared.types.js";
+
+// Kept as an alias: schema-notes.md and older code refer to TtsEmotion.
+export type TtsEmotion = Emotion;
 
 export type TtsInput = {
   text: string;
   providerVoiceId: string;
-  emotion: TtsEmotion;
+  emotion: Emotion;
+  intensity?: Intensity;
   seed: number;
   language: string;
 };

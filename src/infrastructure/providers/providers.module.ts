@@ -17,6 +17,11 @@ import {
   VIDEO_ANALYSIS_PROVIDER,
   VideoAnalysisProvider,
 } from "./interfaces/video-analysis.provider.js";
+import {
+  SOURCE_SEPARATION_PROVIDER,
+  SourceSeparationProvider,
+} from "./interfaces/source-separation.provider.js";
+import { MockSourceSeparationProvider } from "./mock/mock-source-separation.provider.js";
 import { MockTranscriptionProvider } from "./mock/mock-transcription.provider.js";
 import { MockTranslationProvider } from "./mock/mock-translation.provider.js";
 import { MockTtsProvider } from "./mock/mock-tts.provider.js";
@@ -29,6 +34,7 @@ type Adapters = {
   tts: Type<TtsProvider>;
   voiceClone: Type<VoiceCloneProvider>;
   videoAnalysis: Type<VideoAnalysisProvider>;
+  sourceSeparation: Type<SourceSeparationProvider>;
 };
 
 // One entry per PROVIDERS_MODE value. Real adapters get their own entry later.
@@ -39,6 +45,7 @@ const ADAPTERS: Record<Env["PROVIDERS_MODE"], Adapters> = {
     tts: MockTtsProvider,
     voiceClone: MockVoiceCloneProvider,
     videoAnalysis: MockVideoAnalysisProvider,
+    sourceSeparation: MockSourceSeparationProvider,
   },
 };
 
@@ -50,6 +57,7 @@ const providers = [
   { provide: TTS_PROVIDER, useClass: adapters.tts },
   { provide: VOICE_CLONE_PROVIDER, useClass: adapters.voiceClone },
   { provide: VIDEO_ANALYSIS_PROVIDER, useClass: adapters.videoAnalysis },
+  { provide: SOURCE_SEPARATION_PROVIDER, useClass: adapters.sourceSeparation },
 ];
 
 @Global()
