@@ -109,7 +109,7 @@ alter table segment_versions add constraint versions_voice_ck
 - **Version number** is stored in `segment_versions.version`, unique per segment.
   > OPEN: how `version` is assigned. Proposed: `max(version) + 1` for the segment, inside the insert transaction.
 - **Too-long audio:** the re-translate counter (`retranslateCount`, max 2) lives in the `segment.regenerate` payload. After the limit, the segment is set to `flagged`.
-- **Emotion** (`segments.emotion`, `segment_versions.emotion`) is one of `neutral`, `happy`, `sad`, `angry`, `fearful`, `surprised` (`TtsEmotion` in `src/infrastructure/providers/interfaces/tts.provider.ts`). Default `neutral` when analysis is missing.
+- **Emotion** (`segments.emotion`, `segment_versions.emotion`) is one of `neutral`, `happy`, `sad`, `angry`, `fearful`, `surprised` (`EMOTIONS` in `src/infrastructure/providers/interfaces/shared.types.ts`; see [ai.md](ai.md#shared-values)). Default `neutral` when analysis is missing.
 
 ### Voices
 
