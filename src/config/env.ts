@@ -11,6 +11,9 @@ const envSchema = z.object({
   REDIS_URL: z.url(),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   PROVIDERS_MODE: z.enum(["mock"]).default("mock"),
+  NODE_ENV: z.enum(["development", "production"]),
+  BETTER_AUTH_SECRET: z.base64(),
+  BETTER_AUTH_URL: z.url(),
 });
 
 export type Env = z.infer<typeof envSchema>;
