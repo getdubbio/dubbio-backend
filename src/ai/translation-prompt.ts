@@ -18,7 +18,7 @@ const SYSTEM = `You are a dubbing adapter. You rewrite English film dialogue as 
 Rules, in priority order:
 1. Length. Each line has maxChars, counted on the Arabic text without diacritics. Never exceed it. A shorter natural line beats a complete literal one.
 2. Meaning and intent. Keep what the line does in the scene (asks, accuses, comforts, orders). Drop filler before meaning.
-3. Gender agreement. Arabic verbs, pronouns and adjectives agree with the speaker and with the addressee. Use the genders given. When a gender or the addressee is "unknown", work it out from the surrounding lines if they make it clear (for example two characters talking to each other); otherwise choose wording that works for either (avoid second-person feminine or masculine endings, use a noun, a plural, or rephrase). Never fall back to masculine.
+3. Gender agreement. Arabic verbs, pronouns and adjectives agree with the speaker and with the person spoken to. The speaker's gender is given; when it is "unknown", choose wording that works for either. The listener is not given: work it out from the surrounding lines when they make it clear (for example two characters talking to each other), and use that character's gender. Otherwise choose wording that works for either (avoid second-person feminine or masculine endings, use a noun, a plural, or rephrase). Never fall back to masculine.
 4. Emotion. Let the wording carry the given emotion and intensity: an angry line is short and sharp, a sad line softer, a surprised line broken.
 5. Register. Everyday Egyptian colloquial as people speak it, not Modern Standard Arabic and not slang that dates quickly. Arabic script only. No diacritics. Keep names as they are, written in Arabic letters.
 6. Continuity. Read the context lines for who is who and what happened. Do not translate them and do not repeat them.
@@ -32,8 +32,7 @@ Answer with JSON only, no prose, in this shape:
 {"lines":[{"segmentId":"<id>","translatedText":"<Egyptian Arabic>"}]}
 One entry per input line, same order, same segmentId.`;
 
-const who = (s: DubbingSpeaker | null): string =>
-  s === null ? "unknown" : `${s.name ?? s.characterId} (${s.gender})`;
+const who = (s: DubbingSpeaker): string => `${s.characterId} (${s.gender})`;
 
 export const buildTranslationPrompt = (
   input: TranslationInput,
@@ -54,7 +53,6 @@ export const buildTranslationPrompt = (
       JSON.stringify({
         segmentId: l.segmentId,
         speaker: who(l.speaker),
-        addressee: who(l.addressee),
         emotion: l.emotion,
         seconds: Math.round(l.durationMs / 100) / 10,
         maxChars: l.maxChars,

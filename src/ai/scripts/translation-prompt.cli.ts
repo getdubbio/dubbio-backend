@@ -18,18 +18,12 @@ import {
 
 const sceneInput = () => {
   const { characters, segments } = segmentize(SCENE_WORDS, SCENE_ANALYSIS);
-  // Name characters by role so the prompt reads like a real cast. Names live
-  // only here: characters.name is a pending column.
-  const named = characters.map((c) => ({
-    ...c,
-    name: c.gender === "female" ? "Laila" : "Karim",
-  }));
   return toTranslationInput(
     segments.map((s, i) => ({
       ...s,
       id: `seg-${String(i + 1).padStart(2, "0")}`,
     })),
-    named,
+    characters,
     { source: "en", target: "ar-EG" },
   );
 };

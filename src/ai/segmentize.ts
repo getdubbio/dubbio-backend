@@ -36,7 +36,7 @@ export const DEFAULT_SEGMENTIZE_OPTIONS: SegmentizeOptions = {
 
 // Output maps 1:1 to columns that exist today: characters.provider_speaker_id
 // and characters.gender; segments.start_ms, end_ms, source_text, emotion.
-// Name, addressee and intensity wait for their columns (docs/ai.md#open).
+// Nothing else is produced: there is no column for it.
 export type SegmentizedCharacter = {
   providerSpeakerId: string;
   gender: Gender;

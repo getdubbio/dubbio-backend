@@ -59,7 +59,6 @@ describe("translation input", () => {
       durationMs: 2100,
       maxChars: 29,
       speaker: { characterId: "speaker_1", gender: "female" },
-      addressee: null,
       emotion: "angry",
     });
   });

@@ -1,11 +1,10 @@
 import type { Emotion, Gender } from "./shared.types.js";
 
 // Dubbing translation, not plain translation: every line carries its timing
-// budget, who says it, to whom, and how. See docs/ai.md#translation.
+// budget, who says it, and how. See docs/ai.md#translation.
 
 export type DubbingSpeaker = {
   characterId: string;
-  name?: string;
   // `unknown`: use neutral phrasing where the target language allows; never
   // default to male (schema-notes.md).
   gender: Gender;
@@ -19,10 +18,6 @@ export type DubbingLine = {
   // language's speaking rate. A shorter re-translation passes a lower value.
   maxChars: number;
   speaker: DubbingSpeaker;
-  // null: addressed to a group, the audience, or not known. Built at
-  // runtime; there is no addressee column yet, so today it is always null
-  // (docs/ai.md#open).
-  addressee: DubbingSpeaker | null;
   emotion: Emotion;
 };
 

@@ -16,8 +16,6 @@ export type SegmentForTranslation = SegmentizedSegment & { id: string };
 export type CharacterForTranslation = {
   providerSpeakerId: string;
   gender: Gender;
-  // Display name, when one is known. characters.name is a pending column.
-  name?: string;
 };
 
 export const toTranslationInput = (
@@ -28,11 +26,7 @@ export const toTranslationInput = (
 ): TranslationInput => {
   const speakerOf = (providerSpeakerId: string): DubbingSpeaker => {
     const c = characters.find((x) => x.providerSpeakerId === providerSpeakerId);
-    return {
-      characterId: providerSpeakerId,
-      ...(c?.name === undefined ? {} : { name: c.name }),
-      gender: c?.gender ?? "unknown",
-    };
+    return { characterId: providerSpeakerId, gender: c?.gender ?? "unknown" };
   };
 
   const lines: DubbingLine[] = segments.map((s) => ({
@@ -41,8 +35,6 @@ export const toTranslationInput = (
     durationMs: s.endMs - s.startMs,
     maxChars: maxChars(s.endMs - s.startMs, charsPerSecond),
     speaker: speakerOf(s.providerSpeakerId),
-    // No addressee column yet (docs/ai.md#open).
-    addressee: null,
     emotion: s.emotion,
   }));
 
