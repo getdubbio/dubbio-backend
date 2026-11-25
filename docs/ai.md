@@ -80,6 +80,47 @@ One call translates a batch of lines with their context. Plain sentence-by-sente
 - **Gender `unknown`:** neutral phrasing where the language allows; never default to male (schema-notes.md).
 - **Approved segments** are never sent as `lines`, only as `context`.
 
+## Segmentize
+
+Pure code, no vendor: `src/ai/segmentize.ts` (tests next to it). Turns transcript words into `characters` and `segments`. Defaults are in `DEFAULT_SEGMENTIZE_OPTIONS`.
+
+- One character per transcript speaker (`characters.provider_speaker_id`).
+- A segment ends at:
+  - a speaker change;
+  - a pause longer than `maxPauseMs` (500 ms);
+  - sentence-final punctuation followed by a pause of at least `minSentencePauseMs` (150 ms), once the segment is at least `minSegmentMs` (1 s) long. Two sentences said in one breath stay together;
+  - `maxSegmentMs` (8 s).
+    > OPEN: the thresholds are starting values, tuned on the test set.
+- **`end_ms > start_ms` always (`segments_time_ck`).** A segment whose words have no duration joins the segment right before it when that is the same speaker; otherwise it is dropped.
+- Analysis labels map to the transcript speaker they overlap most in time.
+- Gender: from the analysis speaker mapped to this character; `unknown` when there is none, or when two labels mapped to it disagree.
+- Emotion: from the analysis moment that overlaps the segment most, counting moments of the same speaker double; otherwise `neutral`.
+- **Output maps to existing columns only:** characters get `provider_speaker_id` and `gender`; segments get `start_ms`, `end_ms`, `source_text`, `emotion`.
+
+## Translation budget and prompt
+
+### Character budget
+
+`src/ai/char-budget.ts`.
+
+- `maxChars` = `floor(durationMs / 1000 × charsPerSecond)`, at least `MIN_CHARS` (4). Counted by `spokenLength()`: graphemes, without tashkeel or tatweel.
+  > OPEN: `charsPerSecond` is a placeholder (`DEFAULT_CHARS_PER_SECOND = 14`) until it is measured with the cloned voices.
+- Too long after synthesis: re-translate with `shorterBudget()`: the old budget scaled by target ÷ generated duration, minus 10%, and always at least one character lower.
+
+### Prompt
+
+`src/ai/translation-prompt.ts`, vendor-free: `buildTranslationPrompt()` returns `{ system, user }` for any chat model; `parseTranslationResponse()` reads its JSON answer and reports `missing`, `unexpected` and `too_long` lines instead of failing.
+
+- Languages come from the input: the source is named from `projects.source_lang` (`en` → English). `projects.target_lang` is a bare code; `ar` means Egyptian colloquial Arabic until the schema has a dialect field. Any other target throws.
+- Rules in priority order: length, meaning, gender agreement (speaker given; listener inferred from the surrounding lines; `unknown` never becomes masculine), emotion (the six `EMOTIONS` values only), Egyptian colloquial register in Arabic script without diacritics, continuity from context lines.
+
+Try it without an API key:
+
+```sh
+pnpm ai:prompt print              # prompt for the test scene; paste it into any chat model
+pnpm ai:prompt check answer.json  # checks the model's answer: ids and length per line
+```
+
 ## Test scene
 
-`src/infrastructure/providers/mock/fixtures/scene.fixture.ts`: a 28 s, two-character scene written for Dubbio, in the shape of the MVP clip. The transcription and video analysis mocks return it, so the pipeline runs on realistic data without vendor keys. It has two traps for later stages: same-speaker lines 200 ms apart, and analysis labels (`A`, `B`) that differ from transcript ids.
+`src/infrastructure/providers/mock/fixtures/scene.fixture.ts`: a 28 s, two-character scene written for Dubbio, in the shape of the MVP clip. The transcription and video analysis mocks return it, and the segmentize and translation tests run on it. It has two traps for later stages: same-speaker lines 200 ms apart, and analysis labels (`A`, `B`) that differ from transcript ids.
