@@ -21,7 +21,7 @@ export type TranscriptionOutput = {
   words: TranscriptWord[];
   // Language the vendor detected or used.
   languageCode?: string;
-  // Model name, for stage_runs.input_hash and evaluation.
+  // Model name, so results can be traced to the model.
   model: string;
 };
 

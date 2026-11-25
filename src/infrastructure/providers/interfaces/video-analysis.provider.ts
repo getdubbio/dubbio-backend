@@ -6,9 +6,9 @@ import type {
   VendorTaskResult,
 } from "./shared.types.js";
 
-// The analysis is a set of hints for segmentize. Its speaker labels are the
-// video model's own and do not match the transcript's speaker ids; segmentize
-// joins them by time overlap. See docs/ai.md#video-analysis.
+// The analysis is a set of hints. Its speaker labels are the video model's own
+// and do not match the transcript's speaker ids; a later stage joins them by
+// time overlap. See docs/ai.md#video-analysis.
 
 export type VideoAnalysisInput = {
   videoUrl: string;

@@ -33,8 +33,9 @@ export type ContextLine = {
 };
 
 export type TranslationInput = {
+  // projects.source_lang as stored, for example "en".
   sourceLanguage: string;
-  // BCP 47 tag of the target variety, for example "ar-EG".
+  // projects.target_lang as stored, for example "ar".
   targetLanguage: string;
   // In timeline order.
   lines: DubbingLine[];
@@ -49,7 +50,7 @@ export type TranslatedLine = {
 export type TranslationOutput = {
   // One entry per input line, same order.
   lines: TranslatedLine[];
-  // Model and prompt version, for stage_runs.input_hash and evaluation.
+  // Model and prompt version, so results can be traced to what made them.
   model: string;
 };
 

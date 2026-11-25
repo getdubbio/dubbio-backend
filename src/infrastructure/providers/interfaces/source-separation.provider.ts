@@ -14,7 +14,7 @@ export type AudioStem = {
 export type SourceSeparationOutput = {
   dialogue: AudioStem;
   background: AudioStem;
-  // Model name, for stage_runs.input_hash.
+  // Model name, so results can be traced to the model.
   model: string;
 };
 

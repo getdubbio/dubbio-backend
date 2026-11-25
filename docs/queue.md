@@ -47,8 +47,7 @@ Concurrency is per worker process.
 - **Separator.** Job ids use `_`, not `:`. BullMQ rejects custom ids that contain `:` (except a legacy 3-part form it plans to drop).
 - **The `jobId` stops a double enqueue only while the job is still in Redis.** The real guard is `stage_runs`: before a paid vendor call, the worker reuses a `succeeded` run with the same `(project_id, stage, input_hash)`.
 - **`input_hash`** is a hash of everything the stage reads (input asset keys, languages, cast, settings).
-  Inputs per AI stage: [ai.md](ai.md#input-hash).
-  > OPEN: inputs for `validate`, `extract_audio` and the render stages.
+  > OPEN: exact inputs hashed per stage.
 - **Timeouts** are enforced in the worker, because BullMQ has no per-job timeout. The stuck-run sweeper (`maintenance`) fails `stage_runs` rows left `queued`/`running` past their timeout.
 - **Retries.** A retry reuses the same `stage_runs` row and increments `attempts_count`. After the last attempt the stage fails (see [Retry from the failed stage](#retry-from-the-failed-stage)).
 - **Voice jobs** have no `stage_runs` row (`stage_runs.project_id` is not null). `voice.clone` skips the vendor call if `voices.provider_voice_id` is already set.

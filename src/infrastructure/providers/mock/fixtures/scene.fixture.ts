@@ -4,7 +4,7 @@ import type { VideoAnalysisOutput } from "../../interfaces/video-analysis.provid
 
 // A 28-second, two-character scene written for Dubbio's tests and mock mode.
 // Shaped like the MVP clip in the handover: English source, two speakers,
-// escalating emotion. The mocks return it; segmentize tests run on it.
+// escalating emotion. The transcription and video analysis mocks return it.
 //
 // Traps on purpose:
 // - lines 5/6 and 9/10: same speaker, 200 ms apart (split on punctuation)
