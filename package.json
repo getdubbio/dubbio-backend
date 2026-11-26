@@ -6,7 +6,7 @@
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
-  "packageManager": "pnpm@10.33.0",
+  "packageManager": "pnpm@12.21.0",
   "engines": {
     "node": ">=26"
   },
@@ -32,6 +32,7 @@
     "@nestjs/drizzle": "^0.0.2",
     "@nestjs/platform-express": "^12.0.1",
     "bullmq": "^6.7.6",
+    "better-auth": "^1.7.27",
     "drizzle-orm": "1.0.0-rc.5",
     "ioredis": "^6.0.0",
     "pg": "^8.23.1",

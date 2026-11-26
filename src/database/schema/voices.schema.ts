@@ -7,6 +7,7 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import { userTable } from "./auth.schema.js";
 import { studiosTable } from "./studios.schema.js";
 import { timestampsWithSoftDelete } from "./helpers/columns.helpers.js";
 
@@ -26,9 +27,9 @@ export const voicesTable = snakeCase.table(
     studioId: uuid()
       .notNull()
       .references(() => studiosTable.id, { onDelete: "restrict" }),
-    // TODO(auth): add .references(() => usersTable.id) once the better-auth
-    // schema exists.
-    createdBy: uuid().notNull(),
+    createdBy: uuid()
+      .notNull()
+      .references(() => userTable.id, { onDelete: "restrict" }),
     name: varchar({ length: 30 }).notNull(),
     sampleDurationMs: integer().notNull(),
     providerVoiceId: varchar().unique(),

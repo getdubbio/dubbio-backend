@@ -8,6 +8,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { timestampsWithSoftDelete } from "./helpers/columns.helpers.js";
 import { studiosTable } from "./studios.schema.js";
+import { userTable } from "./auth.schema.js";
 
 export const projectStatus = pgEnum("project_status", [
   "uploading",
@@ -32,9 +33,9 @@ export const projectsTable = snakeCase.table(
     status: projectStatus().default("uploading").notNull(),
     sourceLang: varchar().default("en").notNull(),
     targetLang: varchar().default("ar").notNull(),
-    // TODO(auth): add .references(() => usersTable.id) once the better-auth
-    // schema exists.
-    createdBy: uuid().notNull(),
+    createdBy: uuid()
+      .notNull()
+      .references(() => userTable.id),
     durationMs: integer(),
     ...timestampsWithSoftDelete,
   },
