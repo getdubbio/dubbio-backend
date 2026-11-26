@@ -9,16 +9,18 @@ cached, interrupted polling can resume, and the source video stream is left
 untouched until the final render.
 
 > **Project status:** early development. The NestJS bootstrap, environment
-> validation, and PostgreSQL schema are in place. The HTTP API, authentication,
-> pipeline execution, and vendor integrations are not implemented yet.
+> validation, PostgreSQL schema, job queues, worker process, and mock vendor
+> providers are in place. The HTTP API, authentication, pipeline execution, and
+> real vendor integrations are not implemented yet.
 
 ## Architecture
 
 ![Dubbio dubbing pipeline](./docs/diagrams/dubbio.excalidraw.svg)
 
 The table describes the target architecture. The NestJS bootstrap, environment
-validation, database schema and relations, and Docker setup exist in code today;
-API behavior and vendor integrations are still planned.
+validation, database schema and relations, job queues, worker process, mock
+providers, and Docker setup exist in code today; API behavior and real vendor
+integrations are still planned.
 
 | Component              | Responsibility                                                          |
 | ---------------------- | ----------------------------------------------------------------------- |
@@ -102,15 +104,15 @@ integrated.
 
 ## Tech stack
 
-| Area            | Choice                                                       |
-| --------------- | ------------------------------------------------------------ |
-| Runtime         | Node.js 26 in Docker, TypeScript 6, ESM                      |
-| Framework       | NestJS 12 with `@nestjs/drizzle`                             |
-| Database        | PostgreSQL 18, Drizzle ORM 1.0 RC, drizzle-kit               |
-| Validation      | Zod 4                                                        |
-| Package manager | pnpm 10.33                                                   |
-| Tooling         | oxlint (type-aware), Prettier                                |
-| Delivery        | Multi-stage Docker image; Compose manifests for dev and prod |
+| Area            | Choice                                          |
+| --------------- | ----------------------------------------------- |
+| Runtime         | Node.js 26 LTS, TypeScript 6, ESM               |
+| Framework       | NestJS 12 with `@nestjs/drizzle`                |
+| Database        | PostgreSQL 18, Drizzle ORM 1.0 RC, drizzle-kit  |
+| Validation      | Zod 4                                           |
+| Package manager | pnpm 10.33                                      |
+| Tooling         | oxlint (type-aware), Prettier                   |
+| Delivery        | Multi-stage Docker image; Compose for local dev |
 
 ## Repository layout
 
@@ -118,15 +120,20 @@ integrated.
 src/
   main.ts                 Application bootstrap and shutdown hooks
   app.module.ts           Nest module and Drizzle registration
+  main.worker.ts          Worker bootstrap (queue consumers, no HTTP)
+  worker.module.ts        Worker module; processors are registered here only
   config/env.ts           Zod-validated environment
   database/
     schema/               Drizzle table definitions and enums
     relations.ts          Relational query definitions
+  infrastructure/
+    queue/                BullMQ queues and job names
+    events/               Progress events over Redis pub/sub
+    providers/            Vendor interfaces and mock adapters
 drizzle/                  Generated SQL migrations
 drizzle.config.ts         Drizzle Kit configuration
 dubbio.dbml               DBML design reference
-docker-compose.yml        Development stack (PostgreSQL + API)
-docker-compose.prod.yml   Production stack
+docker-compose.yml        Local stack (PostgreSQL, Redis, API, worker)
 Dockerfile                Development, build, and runtime stages
 ```
 
@@ -134,49 +141,50 @@ Dockerfile                Development, build, and runtime stages
 
 Requirements:
 
+- Node.js 26 and pnpm 10 (`corepack enable`).
 - Docker with Compose.
-- The `node:26-trixie` and `postgres:18` images available locally, or network
-  access to pull them.
 
-The initial migration is not committed yet. Generate it once before the first
-start; the one-off container writes the migration to the host's `drizzle/`
-directory:
+Everything runs in Docker: PostgreSQL, Redis, the API, and the worker, so
+everyone develops against the same Node version. Node and pnpm on the host are
+used only for editor tooling (types, lint, format) and migrations.
 
 ```bash
 cp .env.example .env
-docker compose run --rm --no-deps --build api pnpm db:generate --name=init
-docker compose up --build
+pnpm install                  # once; editor types, lint, migrations
+docker compose up --watch     # terminal 1: PostgreSQL, Redis, API, worker
+pnpm db:migrate               # terminal 2, once PostgreSQL is up
 ```
 
-The `api` container installs dependencies, applies the migration, and runs Nest
-in watch mode. Source files are mounted from the host, so changes reload
-automatically. The process listens on <http://localhost:3000>; no HTTP routes
-are registered yet.
+The API is on `http://localhost:${PORT}` (3000 by default). Check it with
+`curl -X POST localhost:${PORT:-3000}/dev/ping`; the job shows up in
+`docker compose logs -f worker`. If the port is already taken, set `PORT` in
+`.env`.
 
-Commit the generated `drizzle/` directory so other environments apply the same
-schema. After that, migrations run automatically whenever the `api` container
-starts.
+Day to day:
+
+- Edit files in `src/` on the host. They are synced into the containers and
+  Nest recompiles in about two seconds. Do not run `pnpm dev` or
+  `pnpm dev:worker` yourself; the containers run them.
+- Add a dependency with `pnpm add <package>` on the host. Compose watch rebuilds
+  the image when `package.json` or the lockfile change.
+- After pulling new migrations, run `pnpm db:migrate`.
 
 Stop the stack or reset its data:
 
 ```bash
 docker compose down
-docker compose down -v   # also deletes the database and dependency volumes
+docker compose down -v   # also deletes the database and Redis volumes
 ```
 
 ## Commands
 
-Run scripts inside the running `api` container:
-
-```bash
-docker compose exec api pnpm <script>
-```
-
 | Script                           | Purpose                              |
 | -------------------------------- | ------------------------------------ |
-| `pnpm start:dev`                 | Run Nest in watch mode               |
+| `pnpm dev`                       | Run the API in watch mode            |
+| `pnpm dev:worker`                | Run the worker in watch mode         |
 | `pnpm build`                     | Compile to `dist/`                   |
-| `pnpm start:prod`                | Run the compiled application         |
+| `pnpm start`                     | Run the compiled API                 |
+| `pnpm start:worker`              | Run the compiled worker              |
 | `pnpm typecheck`                 | Type-check the project               |
 | `pnpm lint`                      | Lint the source                      |
 | `pnpm format`                    | Format the source and Markdown files |
@@ -185,31 +193,23 @@ docker compose exec api pnpm <script>
 | `pnpm db:check`                  | Check migration snapshots            |
 | `pnpm db:studio`                 | Start the Drizzle Studio UI          |
 
-After adding a dependency, rebuild the image so it remains reproducible:
-
-```bash
-docker compose exec api pnpm add <package>
-docker compose up -d --build
-```
+`pnpm dev` and `pnpm dev:worker` are what the `api` and `worker` containers run.
+Running them on the host as well competes with the containers for the same
+queues and ports; stop the matching container first (`docker compose stop worker`).
 
 ## Configuration
 
-`.env.example` contains working defaults and is consumed by Docker Compose:
+`.env.example` contains working defaults. Docker Compose reads the `POSTGRES_*`,
+`*_PORT`, and `PROVIDERS_MODE` variables and gives the `api` and `worker`
+containers their own `DATABASE_URL` and `REDIS_URL` pointing at the `db` and
+`redis` services. `DATABASE_URL` and `REDIS_URL` in `.env` point at `localhost`
+and are used by commands run on the host, such as `pnpm db:migrate`. Keep
+`DATABASE_URL` consistent with the `POSTGRES_*` values.
 
-| Variable                                              | Default  | Purpose                                |
-| ----------------------------------------------------- | -------- | -------------------------------------- |
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `dubbio` | Database container credentials         |
-| `POSTGRES_PORT`                                       | `5432`   | Host port for the development database |
-| `API_PORT`                                            | `3000`   | Host port for the API                  |
-
-Compose builds `DATABASE_URL` from the PostgreSQL variables and injects it into
-the API. The application validates `DATABASE_URL` and an optional `API_PORT`
-(default `3000`) with Zod at startup, and exits if they are invalid. In Compose,
-`API_PORT` controls the published host port; the process inside the container
-listens on `3000`.
-
-For local runs outside Docker, the application also loads a `.env` file when one
-is present.
+The app validates its environment (`DATABASE_URL`, `REDIS_URL`, `PORT`,
+`PROVIDERS_MODE`) with Zod at startup and exits if it is invalid. In Compose,
+`PORT` is the published host port; the API listens on `3000` inside the
+container.
 
 ## Database workflow
 
@@ -218,9 +218,9 @@ is present.
 2. Generate a migration and review the SQL before applying it:
 
    ```bash
-   docker compose exec api pnpm db:generate --name=add_project_tags
+   pnpm db:generate --name=add_project_tags
    # review drizzle/<timestamp>_add_project_tags/migration.sql
-   docker compose exec api pnpm db:migrate
+   pnpm db:migrate
    ```
 
 3. Never edit an applied migration. Add a new migration instead.
@@ -228,42 +228,44 @@ is present.
 Use `pnpm db:generate --custom --name=<name>` for SQL that Drizzle Kit cannot
 express, such as extensions, deferrable constraints, or partial indexes.
 
-The development `api` command applies pending migrations on startup. In
-production, migrations must run as a separate one-shot step before the API
-starts.
+Migrations are never run by the app or its image. Run `pnpm db:migrate` from the
+host (or CI) against the target database: after pulling new migrations in
+development, and before deploying in production.
 
 ## Production
 
-The `runtime` stage in the Dockerfile contains only production dependencies, the
-compiled application, and the migration files. `docker-compose.prod.yml` keeps
-PostgreSQL off the host network and requires an explicit
-`POSTGRES_PASSWORD`.
+The `runtime` stage in the Dockerfile contains only production dependencies and
+the compiled application. It does not contain migrations; apply
+them from the host or CI first (see Database workflow). Local development uses
+the `development` stage of the same Dockerfile, which runs from source.
 
-Production deployment is not complete yet. The intended flow is a one-shot
-migration service followed by the API, but the `migrate` service is currently
-commented out while `api` depends on it, and the compiled migration entrypoint
-(`dist/database/migrate.js`) does not exist. Generate and commit the initial
-migration before building this image as well; the runtime stage copies the
-`drizzle/` directory. Treat the production stack as pending until that wiring is
-finished.
+One image runs every process:
+
+| Process | Command                    |
+| ------- | -------------------------- |
+| api     | `node dist/main.js`        |
+| worker  | `node dist/main.worker.js` |
+
+Production orchestration is not defined yet.
 
 ## Current status
 
-| Area                             | State                                      |
-| -------------------------------- | ------------------------------------------ |
-| NestJS bootstrap and shutdown    | Implemented                                |
-| Zod environment validation       | Implemented                                |
-| Drizzle schema, enums, relations | Implemented                                |
-| Multi-stage Dockerfile           | Implemented                                |
-| Development Compose stack        | Implemented                                |
-| Initial migration                | Not committed; generate before first use   |
-| HTTP API modules                 | Not implemented                            |
-| better-auth integration          | Not implemented; user foreign keys pending |
-| R2 upload endpoints              | Not implemented                            |
-| Pipeline orchestration           | Not implemented                            |
-| Vendor adapters                  | Not implemented                            |
-| Automated tests                  | None yet                                   |
-| Production migration service     | Not implemented                            |
+| Area                                   | State                                      |
+| -------------------------------------- | ------------------------------------------ |
+| NestJS bootstrap and shutdown          | Implemented                                |
+| Zod environment validation             | Implemented                                |
+| Drizzle schema, enums, relations       | Implemented                                |
+| Multi-stage Dockerfile                 | Implemented                                |
+| Local Compose (db, redis, api, worker) | Implemented                                |
+| BullMQ queues and worker process       | Implemented; test job only                 |
+| Mock vendor providers                  | Implemented                                |
+| SQL migrations                         | None generated yet                         |
+| HTTP API modules                       | Not implemented                            |
+| better-auth integration                | Not implemented; user foreign keys pending |
+| R2 upload endpoints                    | Not implemented                            |
+| Pipeline orchestration                 | Not implemented                            |
+| Real vendor adapters                   | Not implemented                            |
+| Automated tests                        | None yet                                   |
 
 ## Documentation
 

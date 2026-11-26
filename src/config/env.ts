@@ -9,7 +9,7 @@ if (existsSync(".env")) {
 const envSchema = z.object({
   DATABASE_URL: z.url(),
   REDIS_URL: z.url(),
-  API_PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+  PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   PROVIDERS_MODE: z.enum(["mock"]).default("mock"),
 });
 

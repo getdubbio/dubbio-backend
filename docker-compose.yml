@@ -24,26 +24,34 @@ services:
     build:
       context: .
       target: development
-    command: [ "sh", "-c", "pnpm install --frozen-lockfile && pnpm db:migrate && exec pnpm start:dev" ]
+    command: [ "pnpm", "dev" ]
     environment:
-      NODE_ENV: development
-      API_PORT: 3000
       DATABASE_URL: postgresql://${POSTGRES_USER:-dubbio}:${POSTGRES_PASSWORD:-dubbio}@db:5432/${POSTGRES_DB:-dubbio}
       REDIS_URL: redis://redis:6379
       PROVIDERS_MODE: ${PROVIDERS_MODE:-mock}
+      PORT: 3000
     ports:
-      - "127.0.0.1:${API_PORT:-3000}:3000"
-      - "127.0.0.1:4983:4983"
-    volumes:
-      - .:/app:Z
-      # npm dependencies live in the volume, not on the host.
-      - node_modules:/app/node_modules
-      - pnpm_store:/pnpm-store
+      - "127.0.0.1:${PORT:-3000}:3000"
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+        - action: rebuild
+          path: ./package.json
+        - action: rebuild
+          path: ./pnpm-lock.yaml
+        - action: rebuild
+          path: ./nest-cli.json
+        - action: rebuild
+          path: ./tsconfig.json
+        - action: rebuild
+          path: ./tsconfig.build.json
     init: true
     restart: unless-stopped
 
@@ -52,20 +60,31 @@ services:
     build:
       context: .
       target: development
-    # No migrations here: the api service applies them.
-    command: [ "sh", "-c", "pnpm install --frozen-lockfile && exec pnpm exec nest start --watch --entryFile main.worker" ]
+    command: [ "pnpm", "dev:worker" ]
     environment:
-      NODE_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER:-dubbio}:${POSTGRES_PASSWORD:-dubbio}@db:5432/${POSTGRES_DB:-dubbio}
       REDIS_URL: redis://redis:6379
       PROVIDERS_MODE: ${PROVIDERS_MODE:-mock}
-    volumes:
-      - .:/app:Z
-      - node_modules:/app/node_modules
-      - pnpm_store:/pnpm-store
     depends_on:
+      db:
+        condition: service_healthy
       redis:
         condition: service_healthy
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+        - action: rebuild
+          path: ./package.json
+        - action: rebuild
+          path: ./pnpm-lock.yaml
+        - action: rebuild
+          path: ./nest-cli.json
+        - action: rebuild
+          path: ./tsconfig.json
+        - action: rebuild
+          path: ./tsconfig.build.json
     init: true
     restart: unless-stopped
 
@@ -85,6 +104,4 @@ services:
 
 volumes:
   postgres_data:
-  node_modules:
-  pnpm_store:
   redis_data:
