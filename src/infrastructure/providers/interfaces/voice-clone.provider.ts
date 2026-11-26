@@ -5,6 +5,8 @@ export type VoiceCloneInput = {
 
 export type VoiceCloneOutput = {
   providerVoiceId: string;
+  // `verification_required` maps to the voice_status value of the same name.
+  status: "ready" | "verification_required";
 };
 
 export interface VoiceCloneProvider {
