@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth/minimal";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { emailOTP } from "better-auth/plugins";
+import { emailOTP, openAPI } from "better-auth/plugins";
 import { env } from "../../config/env.js";
 import { db } from "../../database/db.js";
 import {
@@ -45,6 +45,7 @@ export const auth = betterAuth({
         }
       },
     }),
+    openAPI(),
   ],
 });
 
